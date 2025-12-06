@@ -145,7 +145,7 @@ fn draw_screen(cfg: &Config, selected: usize, path: &str) {
     mvprintw(
         1,
         0,
-        "↑/↓: move   Enter/e: edit text   ←/→: change choice/color   s: save   q: quit",
+        "↑/↓: move   Enter/e: edit text / next choice   ←/→: change choice/color   s: save   q: quit",
     );
     clrtoeol();
 
@@ -447,10 +447,10 @@ fn edit_entry(entry: &mut Entry) {
         }
         // Choice and Color are edited directly with ←/→
         Value::Choice { .. } => {
-            show_status("Use ←/→ to change this choice.");
+            show_status("Use ←/→ or Enter to change this choice.");
         }
         Value::Color { .. } => {
-            show_status("Use ←/→ to change this color.");
+            show_status("Use ←/→ or Enter to change this color.");
         }
         Value::Category => {
             show_status("Category header (not editable).");
@@ -532,8 +532,41 @@ pub fn terminal_edit_json(path: &str) {
                     }
                 }
             }
-            // Enter or 'e' to edit text values (or show message on non-editables)
-            10 | 13 | 101 => {
+            // Enter: for text, open editor; for choice/color, same as Right Arrow
+            10 | 13 => {
+                if let Some(entry) = cfg.entries.get_mut(selected) {
+                    let is_choice_or_color = matches!(
+                        entry.value,
+                        Value::Choice { .. } | Value::Color { .. }
+                    );
+
+                    if is_choice_or_color {
+                        // Same logic as KEY_RIGHT
+                        match &mut entry.value {
+                            Value::Choice {
+                                ref options,
+                                ref mut selected,
+                            }
+                            | Value::Color {
+                                ref options,
+                                ref mut selected,
+                            } => {
+                                if options.is_empty() {
+                                    continue;
+                                }
+                                let len = options.len();
+                                *selected = (*selected + 1) % len;
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        // Text or Category -> use regular edit_entry behavior
+                        edit_entry(entry);
+                    }
+                }
+            }
+            // 'e' -> same as before: edit_entry (text editor or status messages)
+            101 => {
                 if let Some(entry) = cfg.entries.get_mut(selected) {
                     edit_entry(entry);
                 }
