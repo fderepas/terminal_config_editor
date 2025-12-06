@@ -1,0 +1,44 @@
+
+This repository provides an example of a Rust program enabling to edit from the terminal a set of parameters stored in a json file.
+
+![an example](img/example.png)
+
+# JSON format
+
+Here is the JSON format for the above example:
+```
+{
+    "entries": [
+    {
+      "key": "players", "value": {"kind": "category"}
+    },
+    {
+      "key": "player1",
+      "value": {"kind": "text","value": "alice"}
+    },
+    {
+      "key": "player2",
+      "value": {"kind": "text","value": "bob"}
+    },
+    {
+      "key": "visual parameters", "value": {"kind": "category"}
+    },
+    {
+      "key": "theme color",
+      "value": {
+        "kind": "color",
+        "options": ["RED","BLUE","BLACK"],
+        "selected": 1
+      }
+    },
+    {
+      "key": "log_level",
+      "value": {
+        "kind": "choice",
+        "options": ["error","warn","info","debug"],
+        "selected": 2
+      }
+    }
+  ]
+}
+```
