@@ -17,9 +17,7 @@ const PAIR_WHITE: i16 = 9;
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Value {
     /// Free-text string
-    Text {
-        value: String,
-    },
+    Text { value: String },
 
     /// Choice in a list of options
     Choice {
@@ -164,10 +162,7 @@ fn draw_screen(cfg: &Config, selected: usize, path: &str) {
                 format!("{:<20} = {}", entry.key, value_str)
             }
             Value::Choice { options, selected } => {
-                let current = options
-                    .get(*selected)
-                    .map(|s| s.as_str())
-                    .unwrap_or("<?>");
+                let current = options.get(*selected).map(|s| s.as_str()).unwrap_or("<?>");
                 let value_str = format!("[{}]", current);
                 format!("{:<20} = {}", entry.key, value_str)
             }
@@ -176,10 +171,7 @@ fn draw_screen(cfg: &Config, selected: usize, path: &str) {
                 entry.key.clone()
             }
             Value::Color { options, selected } => {
-                let current = options
-                    .get(*selected)
-                    .map(|s| s.as_str())
-                    .unwrap_or("<?>");
+                let current = options.get(*selected).map(|s| s.as_str()).unwrap_or("<?>");
                 let value_str = format!("[{}]", current);
                 format!("{:<20} = {}", entry.key, value_str)
             }
@@ -270,12 +262,12 @@ fn draw_screen(cfg: &Config, selected: usize, path: &str) {
                 mv(row, start_col + bar_width as i32);
                 clrtoeol();
             }
-            Value::Color { options, selected: color_idx } => {
+            Value::Color {
+                options,
+                selected: color_idx,
+            } => {
                 // Color entry: key field + " = [" + colored name + "]"
-                let current = options
-                    .get(*color_idx)
-                    .map(|s| s.as_str())
-                    .unwrap_or("<?>");
+                let current = options.get(*color_idx).map(|s| s.as_str()).unwrap_or("<?>");
 
                 let prefix = format!("{:<20} = [", entry.key);
                 let suffix = "]";
@@ -312,10 +304,10 @@ fn draw_screen(cfg: &Config, selected: usize, path: &str) {
                 // Suffix (with selection highlight if selected)
                 if i == selected {
                     attron(A_REVERSE());
-                    mvprintw(row, col, &suffix);
+                    mvprintw(row, col, suffix);
                     attroff(A_REVERSE());
                 } else {
-                    mvprintw(row, col, &suffix);
+                    mvprintw(row, col, suffix);
                 }
 
                 // Clear to end of line
@@ -415,7 +407,7 @@ fn edit_text_value(key: &str, value: &mut String) {
             }
             _ => {
                 // Printable ASCII (for simplicity)
-                if ch >= 32 && ch <= 126 {
+                if (32..=126).contains(&ch) {
                     if let Some(c) = std::char::from_u32(ch as u32) {
                         if input.len() < 4096 {
                             input.push(c);
@@ -535,10 +527,8 @@ pub fn terminal_edit_json(path: &str) {
             // Enter: for text, open editor; for choice/color, same as Right Arrow
             10 | 13 => {
                 if let Some(entry) = cfg.entries.get_mut(selected) {
-                    let is_choice_or_color = matches!(
-                        entry.value,
-                        Value::Choice { .. } | Value::Color { .. }
-                    );
+                    let is_choice_or_color =
+                        matches!(entry.value, Value::Choice { .. } | Value::Color { .. });
 
                     if is_choice_or_color {
                         // Same logic as KEY_RIGHT
@@ -602,12 +592,10 @@ pub fn terminal_edit_json(path: &str) {
                 }
             }
             // 's' -> save
-            115 => {
-                match save_config_to_disk(&cfg, path) {
-                    Ok(()) => show_status("Saved configuration."),
-                    Err(err) => show_status(&format!("Save failed: {err}")),
-                }
-            }
+            115 => match save_config_to_disk(&cfg, path) {
+                Ok(()) => show_status("Saved configuration."),
+                Err(err) => show_status(&format!("Save failed: {err}")),
+            },
             // 'q' -> quit
             113 => {
                 break;
@@ -617,4 +605,38 @@ pub fn terminal_edit_json(path: &str) {
     }
 
     endwin();
+}
+
+/// Get the string value associated with a key, if any.
+///
+/// - For `text`: returns the text (`value`).
+/// - For `choice`/`color`: returns the currently selected option string.
+/// - For `category` or missing key: returns `None`.
+pub fn get_string(path: &str, key: &str) -> Option<String> {
+    let cfg = load_config(path);
+    cfg.entries
+        .iter()
+        .find(|e| e.key == key)
+        .and_then(|entry| match &entry.value {
+            Value::Text { value } => Some(value.clone()),
+            Value::Choice { options, selected } | Value::Color { options, selected } => {
+                options.get(*selected).cloned()
+            }
+            Value::Category => None,
+        })
+}
+
+/// Get the selected option index associated with a key, if it is a choice/color.
+///
+/// - For `choice`/`color`: returns `Some(selected)`.
+/// - For `text`/`category` or missing key: returns `None`.
+pub fn get_option(path: &str, key: &str) -> Option<usize> {
+    let cfg = load_config(path);
+    cfg.entries
+        .iter()
+        .find(|e| e.key == key)
+        .and_then(|entry| match &entry.value {
+            Value::Choice { selected, .. } | Value::Color { selected, .. } => Some(*selected),
+            _ => None,
+        })
 }
